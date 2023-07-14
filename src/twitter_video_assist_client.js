@@ -154,17 +154,22 @@ function downloadMediaObject(event) {
     }
 }
 
-function downloadVideoObject(tweet, tweetSelector, videoTag) {
+async function downloadVideoObject(tweet, tweetSelector, videoTag) {
     var videoSource = videoTag.src
     if (!videoSource) {
         videoSource = tweet.find('source')[0].src
     }
 
+    let url = null
+    if (videoSource.includes('blob')) {
+        url = await extractGraphQlMp4Video(getTweetId(tweet, tweetSelector), getCookie("ct0"))
+    }
+
     browser.runtime.sendMessage({
         type: 'video',
-        videoSource: videoSource,
+        videoSource: url || videoSource,
         tweetId: getTweetId(tweet, tweetSelector),
-        readerableFilename: readerableFilename(tweet, tweetSelector),
+        readerableFilename: generateReaderableFilename(tweet, tweetSelector),
         tweetSelector: tweetSelector,
         token: getCookie("ct0")
     })
@@ -184,21 +189,22 @@ function downloadImageObject(tweet, tweetSelector, imageTags) {
         imageTags[2] = temp;
     }
 
+    let accumIndex = 1
     imageTags.each((index, element) => {
         let src = $(element).attr('src')
-            if (nameAttributeQuery.test(src)) {
-                src = src.replace(nameAttributeQuery, '$1orig$3')
-            } else if (src.includes('=')) {
+        if (nameAttributeQuery.test(src)) {
+            src = src.replace(nameAttributeQuery, '$1orig$3')
+        } else if (src.includes('=')) {
             src = src + '&name=orig';
-            } else {
+        } else {
             src = src + '?name=orig';
         }
-        processImageDownload(src, readerableFilename(tweet, tweetSelector, accumIndex))
+        processImageDownload(src, generateReaderableFilename(tweet, tweetSelector, accumIndex))
         accumIndex++;
     })
 }
 
-function readerableFilename(tweet, selector, index) {
+function generateReaderableFilename(tweet, selector, index) {
     if (selector === modalCalss) {
         return `${getTweetOwner(tweet, selector)}-${getTweetId(tweet, selector)}-${indexOfImage(selector) + 1}`
     } else if (!!index) {
